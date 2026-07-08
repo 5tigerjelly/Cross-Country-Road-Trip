@@ -106,9 +106,29 @@ EXIF offsets — but if the clock looks wrong near a border, that's where to loo
 - **exiftool is the only trustworthy metadata source.** macOS `mdls` misinterprets
   HEIC local times using the Mac's current timezone. Photos: `DateTimeOriginal` +
   `OffsetTimeOriginal`; videos: `CreationDate` (has offset); `CreateDate` is UTC.
-- iPhone videos are HEVC (`hvc1`) → must transcode for Chrome. `h264_videotoolbox`
-  (hardware) is fast; ffmpeg's default autorotate handles Rotation 90/180 metadata —
-  do NOT pass `-noautorotate`.
+- iPhone videos are HEVC (`hvc1`) **HDR** (HLG / arib-std-b67, bt2020, 10-bit) →
+  must transcode for Chrome AND tone-map to SDR bt709, or browsers apply an
+  eye-searing EDR brightness boost. The working chain (in convert_media.sh):
+  sw decode → `scale` → `hwupload` → `scale_vt=color_*=bt709` (GPU tone-map) →
+  `hwdownload,format=p010le` → `libx264 -crf 27` (High/yuv420p/faststart; ~half the
+  size of the old 2200k `h264_videotoolbox` encode at equal quality), with
+  `-init_hw_device videotoolbox=vt -filter_hw_device vt`. **SDR clips** (already
+  bt709, incl. full-range `yuvj420p` screen recordings) skip the VT path entirely —
+  a plain sw `scale,format=yuv420p` → `libx264`; hwdownload chokes on their surface.
+  ffmpeg's default autorotate handles Rotation 90/180 on the sw-decode path — do
+  NOT pass `-noautorotate`.
+- **VideoToolbox traps (a full evening was lost here):**
+  (1) `-hwaccel videotoolbox` DECODE is unreliable in loops/background shells:
+  it either errors (-22) or — worse — silently skips the scale_vt color conversion
+  while still exiting 0, leaving HDR files tagged HLG. Never trust exit codes for
+  tone-mapping; verify with `ffprobe ... color_transfer` == bt709 (the script now
+  has a STILL-HDR check at the end that does this).
+  (2) Run media conversion from a NORMAL FOREGROUND shell. Background tasks
+  produced broken output even with the sandbox disabled; two concurrent encoder
+  runs also poison each other's VT sessions (kill strays with
+  `pkill -f "ffmpeg"` first).
+  (3) This ffmpeg has no libwebp/zscale/libplacebo — cwebp for WebP, scale_vt is
+  the only available tone-mapper.
 - The Homebrew ffmpeg build here has **no libwebp encoder** and sips can't write
   WebP → use `cwebp` (installed via `brew install webp` + `libtiff`). exiftool,
   ffmpeg, cwebp are all installed already.
