@@ -136,7 +136,19 @@ EXIF offsets — but if the clock looks wrong near a border, that's where to loo
 - OSRM public server (`router.project-osrm.org`) is free, no key; batch ≤20 coords
   per request, sleep ~1.2s between calls, retry on failure (build_trip.py does all
   this).
-- No git repo here (as of Day 2). Don't commit anything without asking.
+- Git repo initialized Day 2 (`main` → `git@github.com:5tigerjelly/Cross-Country-Road-Trip.git`).
+  `photos/` originals, `hotels/` vouchers, and `build/` are gitignored (see
+  `.gitignore`) — originals are 2.4GB with home GPS in EXIF and one file >100MB, so
+  they never go up. Still ask before committing.
+
+## Deployment (GitHub Pages)
+
+Live at **https://5tigerjelly.github.io/Cross-Country-Road-Trip/**. Publishing is
+automatic: `.github/workflows/pages.yml` uploads `site/` to Pages on every push to
+`main` (Pages source = "GitHub Actions"). So the daily update flow ends with:
+`git add -A && git commit && git push` — the deploy runs itself (~1 min); check it
+with `gh run watch`. The GPS-stripped, libx264-CRF27 media keeps the pushed repo
+small (~390MB, largest file 16MB — well under Pages' 1GB/100MB limits).
 
 ## App gotchas (learned by breaking them)
 
