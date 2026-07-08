@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>CA → NY · Cross-Country Road Trip</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="map"></div>
+
+<header id="titlebar">
+  <div class="trip-title">CROSS&#8209;COUNTRY <span>'26</span></div>
+  <div class="trip-sub">Mountain View, CA → Long Island City, NY</div>
+</header>
+
+<div id="stats">
+  <div class="stat"><span id="stat-miles">0</span><label>miles</label></div>
+  <div class="stat"><span id="stat-charges">0</span><label>charges</label></div>
+  <div class="stat"><span id="stat-kwh">0</span><label>kWh</label></div>
+</div>
+
+<div id="media-card" class="hidden">
+  <div class="media-frame">
+    <img id="media-img" alt="" draggable="false">
+    <video id="media-video" muted playsinline preload="auto"></video>
+    <div class="media-time" id="media-time"></div>
+  </div>
+</div>
+
+<div id="phase-toast" class="hidden"><span id="phase-icon"></span><span id="phase-text"></span></div>
+
+<button id="follow-btn" class="hidden" title="Re-center on car">⌖</button>
+
+<div id="dock">
+  <div class="dock-row info">
+    <div class="clock">
+      <div id="clock-time">–:––</div>
+      <div id="clock-day">Day 1 · Mon Jul 6</div>
+    </div>
+    <div id="phase-label">Ready to roll</div>
+  </div>
+  <div class="dock-row controls">
+    <button id="play-btn" aria-label="Play">
+      <svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      <svg id="icon-pause" viewBox="0 0 24 24" class="hidden"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+    </button>
+    <div id="scrubber">
+      <div id="scrub-track">
+        <div id="scrub-fill"></div>
+        <div id="scrub-ticks"></div>
+        <div id="scrub-handle"></div>
+      </div>
+    </div>
+    <button id="speed-btn">1×</button>
+  </div>
+</div>
+
+<div id="intro">
+  <div class="intro-inner">
+    <div class="intro-kicker">JULY 6 – 10 · 2026</div>
+    <h1>The Great<br>Crossing</h1>
+    <p>2,900 miles · one Tesla · five days<br>Follow the trail so far — two days in.</p>
+    <button id="start-btn">▶&nbsp; Ride along</button>
+  </div>
+</div>
+
+<div id="lightbox" class="hidden">
+  <button id="lightbox-close">✕</button>
+  <img id="lightbox-img" class="hidden" alt="">
+  <video id="lightbox-video" class="hidden" controls playsinline></video>
+  <div id="lightbox-caption"></div>
+</div>
+
+<div id="finale" class="hidden">
+  <div class="finale-inner">
+    <div class="intro-kicker">END OF DAY 2</div>
+    <h2 id="finale-title">Sterling, CO</h2>
+    <p id="finale-body"></p>
+    <button id="replay-btn">↺&nbsp; Replay the trip</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="data/trip.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
