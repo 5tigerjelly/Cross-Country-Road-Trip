@@ -39,7 +39,11 @@ for f in *.MOV *.mov *.MP4; do
     tr=$(ffprobe -v error -select_streams v:0 -show_entries stream=color_transfer -of default=nk=1:nw=1 "$f")
     if [ "$tr" = "arib-std-b67" ] || [ "$tr" = "smpte2084" ]; then
       # HDR: GPU tone-map to bt709, download 10-bit surface, encode
+      # -map 0:v:0 -map "0:a:0?" : take only the first video + first audio track;
+      # some iPhone clips carry extra "unknown"-codec audio/data streams that
+      # ffmpeg's auto-map tries (and fails) to decode. The ? keeps silent clips ok.
       ffmpeg -hide_banner -loglevel error -init_hw_device videotoolbox=vt -filter_hw_device vt -i "$f" \
+        -map 0:v:0 -map "0:a:0?" \
         -vf "scale='min(960,iw)':-2,hwupload,scale_vt=color_matrix=bt709:color_primaries=bt709:color_transfer=bt709,hwdownload,format=p010le,format=yuv420p" \
         -c:v libx264 -preset medium -crf 27 -profile:v high -level 4.0 \
         -c:a aac -b:a 96k -movflags +faststart -map_metadata -1 -y "$dest" \
@@ -47,6 +51,7 @@ for f in *.MOV *.mov *.MP4; do
     else
       # SDR (already bt709): plain sw scale + encode
       ffmpeg -hide_banner -loglevel error -i "$f" \
+        -map 0:v:0 -map "0:a:0?" \
         -vf "scale='min(960,iw)':-2,format=yuv420p" \
         -c:v libx264 -preset medium -crf 27 -profile:v high -level 4.0 \
         -c:a aac -b:a 96k -movflags +faststart -map_metadata -1 -y "$dest" \

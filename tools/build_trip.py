@@ -108,6 +108,12 @@ FALLBACK = {
     "Laramie, WY": (41.3092, -105.5850),
     "Cheyenne, WY": (41.1360, -104.8200),
     "Johnstown, CO": (40.3372, -104.9847),
+    "North Platte, NE": (41.1403, -100.7601),
+    "Kearney, NE": (40.7000, -99.0815),
+    "Lincoln, NE": (40.8136, -96.7026),
+    "Shelby, IA": (41.5138, -95.4497),
+    "West Des Moines, IA": (41.5641, -93.8127),
+    "Grinnell, IA": (41.6889, -92.7769),
 }
 charges = []
 for row in csv.DictReader(open(CHARGE_CSV)):
@@ -159,8 +165,14 @@ wend_hi = datetime.datetime(2026, 7, 7, 6, 30, tzinfo=MT).timestamp()
 wend_coord, wend_arr, wend_dep = hotel_cluster((40.7371, -114.0399), wend_lo, wend_hi)
 
 ster_lo = datetime.datetime(2026, 7, 7, 18, 30, tzinfo=MT).timestamp()
-ster_hi = datetime.datetime(2026, 7, 8, 6, 0, tzinfo=MT).timestamp()
+ster_hi = datetime.datetime(2026, 7, 8, 7, 0, tzinfo=MT).timestamp()  # widened to catch morning departure
 ster_coord, ster_arr, ster_dep = hotel_cluster((40.6181, -103.1819), ster_lo, ster_hi)
+
+# Day 3 overnight: Comfort Suites Coralville I-80 (Central time now)
+CT = datetime.timezone(datetime.timedelta(hours=-5))
+cor_lo = datetime.datetime(2026, 7, 8, 19, 0, tzinfo=CT).timestamp()
+cor_hi = datetime.datetime(2026, 7, 9, 11, 0, tzinfo=CT).timestamp()
+cor_coord, cor_arr, cor_dep = hotel_cluster((41.6845, -91.6025), cor_lo, cor_hi)
 
 hotels = [
     {"type": "hotel", "label": "West Wendover, NV", "name": "Quality Inn Stateline",
@@ -171,11 +183,17 @@ hotels = [
     {"type": "hotel", "label": "Sterling, CO", "name": "Best Western Sundowner",
      "lat": ster_coord[0], "lon": ster_coord[1],
      "arrive": ster_arr or datetime.datetime(2026,7,7,19,45,tzinfo=MT).timestamp(),
-     "depart": None,  # still there — end of timeline
+     "depart": ster_dep or datetime.datetime(2026,7,8,6,35,tzinfo=MT).timestamp(),
      "tz": -6, "night": "Tue, Jul 7"},
+    {"type": "hotel", "label": "Coralville, IA", "name": "Comfort Suites Coralville I-80",
+     "lat": cor_coord[0], "lon": cor_coord[1],
+     "arrive": cor_arr or datetime.datetime(2026,7,8,20,25,tzinfo=CT).timestamp(),
+     "depart": None,  # still there — end of timeline
+     "tz": -5, "night": "Wed, Jul 8"},
 ]
 print("wendover:", wend_coord, wend_arr, wend_dep)
 print("sterling:", ster_coord, ster_arr, ster_dep)
+print("coralville:", cor_coord, cor_arr, cor_dep)
 
 # ---------- 4. anchors ----------
 start_t = media[0]["t"] - 120 if media else TRIP_START_UTC.timestamp()
@@ -307,11 +325,7 @@ for a in anchors:
 
 # ---------- 6. future route ----------
 FUTURE = [
-    ("Sterling, CO", ster_coord), ("Ogallala, NE", (41.1281,-101.7196)),
-    ("North Platte, NE", (41.1403,-100.7601)), ("Kearney, NE", (40.7000,-99.0815)),
-    ("York, NE", (40.8681,-97.5920)), ("Lincoln, NE", (40.8136,-96.7026)),
-    ("Gretna, NE", (41.1408,-96.2397)), ("Des Moines, IA", (41.5910,-93.6037)),
-    ("Williamsburg, IA", (41.6614,-92.0074)), ("Coralville, IA", (41.6764,-91.5805)),
+    ("Coralville, IA", cor_coord),
     ("Davenport, IA", (41.5236,-90.5776)), ("Peru, IL", (41.3275,-89.1290)),
     ("Joliet, IL", (41.5250,-88.0817)), ("Mishawaka, IN", (41.6620,-86.1586)),
     ("Angola, IN", (41.6345,-84.9997)), ("Maumee, OH", (41.5628,-83.6538)),
@@ -335,8 +349,8 @@ for leg in fut_legs:
             future_line.append([round(p[0], 4), round(p[1], 4)])
 print(f"future line: {len(future_line)} pts")
 
-# planned future stops (day 3-5 charge/overnight cities, skip Sterling)
-PLAN = {"Coralville, IA": "night", "Avon, OH": "night", "Long Island City, NY": "finish"}
+# planned future stops (day 4-5 charge/overnight cities, skip current overnight Coralville)
+PLAN = {"Avon, OH": "night", "Long Island City, NY": "finish"}
 future_stops = [{"label": n, "lat": c[0], "lon": c[1], "kind": PLAN.get(n, "charge")}
                 for n, c in FUTURE[1:]]
 
@@ -349,6 +363,7 @@ out = {
         "days": [
             {"label": "Day 1", "date": "Mon Jul 6", "from": "Mountain View, CA", "to": "West Wendover, NV"},
             {"label": "Day 2", "date": "Tue Jul 7", "from": "West Wendover, NV", "to": "Sterling, CO"},
+            {"label": "Day 3", "date": "Wed Jul 8", "from": "Sterling, CO", "to": "Coralville, IA"},
         ],
     },
     "tz": tz_steps,
