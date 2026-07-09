@@ -47,10 +47,19 @@
   // ---------- playback mapping (compress dwells) ----------
   const DRIVE = 812;        // trip-seconds per play-second at 1× while driving (+25% over 650)
   const DWELL_PLAY = 3.2;   // play-seconds per stop dwell at 1×
-  const dwells = stops
-    .map(s => ({ a: s.arrive, d: s.depart == null ? T1 : s.depart, s }))
+  const rawDwells = stops
+    .map(s => ({ a: s.arrive, d: s.depart == null ? T1 : s.depart }))
     .filter(w => w.d - w.a > 300 && w.a < T1)
     .sort((x, y) => x.a - y.a);
+  // merge overlapping / nested dwells (e.g. charging at the hotel during the
+  // overnight) into one window — otherwise the inner stop resets the cursor and
+  // the long sleep between them plays at full driving speed instead of compressing
+  const dwells = [];
+  for (const w of rawDwells) {
+    const last = dwells[dwells.length - 1];
+    if (last && w.a <= last.d) last.d = Math.max(last.d, w.d);
+    else dwells.push({ a: w.a, d: w.d });
+  }
   const segs = []; // {t0,t1,p0,p1}
   let cursor = T0, pcum = 0;
   const pushSeg = (t0, t1, dur) => { if (t1 > t0) { segs.push({ t0, t1, p0: pcum, p1: pcum + dur }); pcum += dur; } };
