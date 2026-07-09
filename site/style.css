@@ -290,6 +290,20 @@ html, body {
   border-radius: 1px;
   font-size: 0;
 }
+.day-label {
+  position: absolute;
+  top: -13px;
+  transform: translateX(-50%);
+  font-size: 8.5px;
+  letter-spacing: .04em;
+  font-weight: 500;
+  color: var(--text-dim);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.day-label:hover { color: var(--text); }
+.day-label.current { color: var(--accent); }
 #scrub-handle {
   position: absolute;
   top: 50%;
@@ -419,6 +433,52 @@ html, body {
   transition: transform .15s ease;
 }
 #start-btn:active, #replay-btn:active { transform: scale(.94); }
+
+.intro-or {
+  margin-top: 18px;
+  font-size: .66rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+#intro-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+}
+.day-chip {
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 8px 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  line-height: 1.15;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.day-chip b { font-size: .82rem; font-weight: 700; }
+.day-chip span { font-size: .6rem; color: var(--text-dim); letter-spacing: .06em; }
+.day-chip:hover { border-color: var(--accent); }
+.day-chip:active { transform: scale(.93); }
+#finale-more {
+  display: block;
+  margin: 14px auto 0;
+  font-family: inherit;
+  font-size: .8rem;
+  letter-spacing: .04em;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+#finale-more:hover { color: var(--text); }
 
 /* ---------- lightbox ---------- */
 #lightbox {

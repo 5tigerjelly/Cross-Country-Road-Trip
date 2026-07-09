@@ -8,13 +8,23 @@ mkdir -p "$OUT"
 
 cd "$SRC"
 
-# Photos
+# Photos. sips copies the EXIF Orientation tag but does NOT bake the rotation into
+# pixels; cwebp (gen_webp.sh) then strips that tag, so rotated shots (Rotate 90/180/
+# 270) render sideways/upside-down in the WebP variants the app displays. So bake the
+# rotation into the pixels here and normalize the tag to 1. Orientation codes (-n):
+# 3=180, 6=90 CW, 8=270 CW; sips -r rotates clockwise by that many degrees.
 for f in *.HEIC *.jpg *.JPEG; do
   [ -e "$f" ] || continue
   base="${f:r}"
   dest="$OUT/${base// /_}.jpg"
   [ -s "$dest" ] && continue
-  sips -Z 1600 -s format jpeg -s formatOptions 72 "$f" --out "$dest" >/dev/null 2>&1 || echo "FAIL photo: $f"
+  sips -Z 1600 -s format jpeg -s formatOptions 72 "$f" --out "$dest" >/dev/null 2>&1 || { echo "FAIL photo: $f"; continue; }
+  ori=$(exiftool -n -s3 -Orientation "$dest" 2>/dev/null)
+  case "$ori" in 3) deg=180 ;; 6) deg=90 ;; 8) deg=270 ;; *) deg=0 ;; esac
+  if [ "$deg" != 0 ]; then
+    sips -r $deg "$dest" >/dev/null 2>&1
+    exiftool -q -n -Orientation=1 -overwrite_original "$dest" >/dev/null 2>&1
+  fi
 done
 
 # Videos -> H.264 High/yuv420p/faststart, max 960px wide, libx264 CRF 27 (much

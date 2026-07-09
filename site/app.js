@@ -45,7 +45,7 @@
   }
 
   // ---------- playback mapping (compress dwells) ----------
-  const DRIVE = 650;        // trip-seconds per play-second at 1× while driving
+  const DRIVE = 812;        // trip-seconds per play-second at 1× while driving (+25% over 650)
   const DWELL_PLAY = 3.2;   // play-seconds per stop dwell at 1×
   const dwells = stops
     .map(s => ({ a: s.arrive, d: s.depart == null ? T1 : s.depart, s }))
@@ -107,7 +107,33 @@
 
   // ---------- media helpers ----------
   const mTs = media.map(m => m.t);
-  const mediaIdxAt = t => { if (!media.length || t < mTs[0]) return -1; return bisect(mTs, t); };
+  // Card shows a thinned set: at higher speed a burst of shots taken seconds apart
+  // would flash past unreadably, so we drop any media that lands within MIN_CARD_GAP
+  // play-seconds of the previously shown one. (Dropped ones still appear as map dots
+  // and in the total count — they're just skipped on the card.)
+  const MIN_CARD_GAP = 0.7;
+  const cardIndices = [];
+  { let lastP = -Infinity;
+    for (let i = 0; i < media.length; i++) {
+      const p = trip2play(media[i].t);
+      if (p - lastP >= MIN_CARD_GAP) { cardIndices.push(i); lastP = p; }
+    } }
+  const cardTs = cardIndices.map(i => media[i].t);
+  const cardMediaIdxAt = t => { if (!cardTs.length || t < cardTs[0]) return -1; return cardIndices[bisect(cardTs, t)]; };
+
+  // ---------- day chapters (scrubber segments + intro day picker) ----------
+  const D0 = dayNumAt(T0), DN = dayNumAt(T1);
+  function dayStartTrip(d) {            // smallest trip-time whose local day >= d
+    if (d <= D0) return T0;
+    let lo = T0, hi = T1;
+    while (hi - lo > 1) { const mid = (lo + hi) / 2; if (dayNumAt(mid) >= d) hi = mid; else lo = mid; }
+    return hi;
+  }
+  const chapters = [];
+  for (let d = D0; d <= DN; d++) {
+    const t0 = dayStartTrip(d), t1 = d < DN ? dayStartTrip(d + 1) : T1;
+    chapters.push({ d, t0, t1, p0: trip2play(t0), p1: trip2play(t1) });
+  }
 
   // ---------- map ----------
   const map = new maplibregl.Map({
@@ -226,9 +252,33 @@
     el.style.left = `${(trip2play(s.arrive) / PLAY_TOTAL) * 100}%`;
     scrubTicks.appendChild(el);
   }
+  // day chapters (YouTube-style): a divider at each day boundary + a clickable
+  // "Day N" label centered in its span that jumps to / watches that day
+  const dayLabels = [];
+  for (const c of chapters) {
+    if (c.d > D0) {
+      const dv = document.createElement("div");
+      dv.className = "tick day";
+      dv.style.left = `${(c.p0 / PLAY_TOTAL) * 100}%`;
+      scrubTicks.appendChild(dv);
+    }
+    const lab = document.createElement("div");
+    lab.className = "day-label";
+    lab.textContent = `Day ${c.d}`;
+    lab.style.left = `${((c.p0 + c.p1) / 2 / PLAY_TOTAL) * 100}%`;
+    lab.addEventListener("pointerdown", e => {
+      e.stopPropagation();
+      segStart = c.p0; segEnd = c.p1; playP = c.p0; finaleShown = false;
+      render(play2trip(playP));
+      if (!playing) setPlaying(true);
+    });
+    scrubTicks.appendChild(lab);
+    dayLabels.push({ c, el: lab });
+  }
 
   // ---------- state ----------
   let playP = 0;                // play-domain position (seconds)
+  let segStart = 0, segEnd = PLAY_TOTAL; // active playback window (whole trip, or one day)
   let playing = false;
   let speed = 1;
   const SPEEDS = [1, 2, 4, 0.5];
@@ -328,12 +378,14 @@
     if ((frameCount & 15) === 0) map.setFilter("photo-passed", ["<=", ["get", "t"], t]);
 
     // media
-    showMedia(mediaIdxAt(t));
+    showMedia(cardMediaIdxAt(t));
 
     // scrubber
     const frac = playP / PLAY_TOTAL;
     scrubFill.style.width = `${frac * 100}%`;
     scrubHandle.style.left = `${frac * 100}%`;
+    const curD = dayNumAt(t);
+    for (const dl of dayLabels) dl.el.classList.toggle("current", dl.c.d === curD);
   }
 
   // ---------- playback loop ----------
@@ -345,9 +397,9 @@
     lastFrame = now;
     // linger when a fresh photo/video just appeared so it can actually be seen
     const linger = now - lastMediaChange < 1800 ? 0.35 : 1;
-    playP = Math.min(PLAY_TOTAL, playP + dt * speed * linger);
+    playP = Math.min(segEnd, playP + dt * speed * linger);
     render(play2trip(playP));
-    if (playP >= PLAY_TOTAL) { setPlaying(false); showFinale(); }
+    if (playP >= segEnd) { setPlaying(false); showFinale(); }
   }
   requestAnimationFrame(tick);
 
@@ -359,34 +411,46 @@
     else if (curMediaIdx >= 0 && media[curMediaIdx].type === "video") mediaVideo.play().catch(() => {});
   }
 
+  const wholeTrip = () => segStart <= 0.5 && segEnd >= PLAY_TOTAL - 0.5;
   function showFinale() {
     if (finaleShown) return;
     finaleShown = true;
     const fin = $("finale");
-    const lastStop = stops[stops.length - 1];
-    const nDays = dayNumAt(T1);
-    fin.querySelector(".intro-kicker").textContent = `END OF DAY ${nDays}`;
+    const tEnd = play2trip(segEnd);
+    const nDay = dayNumAt(tEnd);
+    let lastStop = stops[0];
+    for (const s of stops) if (s.arrive <= tEnd + 1) lastStop = s;
+    const miles = Math.round(posAt(tEnd).km * 0.621371).toLocaleString();
+    fin.querySelector(".intro-kicker").textContent = wholeTrip() ? `END OF DAY ${nDay}` : `DAY ${nDay}`;
     $("finale-title").textContent = lastStop.label;
-    $("finale-body").textContent =
-      `${Math.round(TOTAL_KM * 0.621371).toLocaleString()} miles, ${stops.filter(s => s.type === "charge").length} supercharges and ${media.length} memories in ${nDays} days. ` +
-      `Still to come: the dashed line to New York.`;
+    $("finale-body").textContent = wholeTrip()
+      ? `${miles} miles, ${stops.filter(s => s.type === "charge").length} supercharges and ${media.length} memories in ${nDay} days. Still to come: the dashed line to New York.`
+      : `That wraps Day ${nDay} — into ${lastStop.label}. Replay it, or pick another day.`;
+    $("replay-btn").innerHTML = wholeTrip() ? "↺&nbsp; Replay the trip" : `↺&nbsp; Replay Day ${nDay}`;
     fin.classList.remove("hidden", "fade");
     map.flyTo({ center: fullBounds.getCenter(), zoom: 4.2, duration: 2500 });
   }
   $("replay-btn").addEventListener("click", () => {
     $("finale").classList.add("fade");
     finaleShown = false;
-    playP = 0; follow = true; followBtn.classList.add("hidden");
+    playP = segStart; follow = true; followBtn.classList.add("hidden");
     followZoom = DEFAULT_FOLLOW_ZOOM;
-    const start = posAt(T0);
-    map.flyTo({ center: [start.lon, start.lat], zoom: DEFAULT_FOLLOW_ZOOM, duration: 1800 });
+    const pos = posAt(play2trip(playP));
+    map.flyTo({ center: [pos.lon, pos.lat], zoom: DEFAULT_FOLLOW_ZOOM, duration: 1800 });
     map.once("moveend", () => setPlaying(true));
+  });
+  $("finale-more").addEventListener("click", () => {
+    $("finale").classList.add("fade");
+    setPlaying(false);
+    finaleShown = false;
+    started = false;
+    intro.classList.remove("fade", "hidden");
   });
   $("finale").addEventListener("click", e => { if (e.target.id === "finale") $("finale").classList.add("fade"); });
 
   // ---------- controls ----------
   playBtn.addEventListener("click", () => {
-    if (playP >= PLAY_TOTAL) playP = 0;
+    if (playP >= segEnd) playP = segStart;
     setPlaying(!playing);
   });
   speedBtn.addEventListener("click", () => {
@@ -477,15 +541,33 @@
   const intro = $("intro");
   intro.querySelector("p").innerHTML =
     `2,900 miles · one Tesla · five days<br>Follow the trail so far — ${dayNumAt(T1)} days in.`;
+  // day picker (most recent first): each chip plays just that day
+  const introDays = $("intro-days");
+  const stateOf = s => (s.split(",").pop() || "").trim();
+  for (let k = chapters.length - 1; k >= 0; k--) {
+    const c = chapters[k], day = data.meta.days[c.d - 1];
+    const btn = document.createElement("button");
+    btn.className = "day-chip";
+    btn.innerHTML = `<b>Day ${c.d}</b><span>${day ? `${stateOf(day.from)} → ${stateOf(day.to)}` : ""}</span>`;
+    btn.addEventListener("click", () => begin(c.p0, c.p1));
+    introDays.appendChild(btn);
+  }
   let started = false;
-  function begin() {
+  function begin(pStart, pEnd) {
     if (started) return;
     started = true;
+    segStart = pStart == null ? 0 : pStart;
+    segEnd = pEnd == null ? PLAY_TOTAL : pEnd;
+    playP = segStart;
+    finaleShown = false;
     intro.classList.add("fade");
-    const start = posAt(T0);
-    map.flyTo({ center: [start.lon, start.lat], zoom: DEFAULT_FOLLOW_ZOOM, duration: 2600, essential: true });
+    const pos = posAt(play2trip(playP));
+    map.flyTo({ center: [pos.lon, pos.lat], zoom: DEFAULT_FOLLOW_ZOOM, duration: 2600, essential: true });
     map.once("moveend", () => setPlaying(true));
   }
-  $("start-btn").addEventListener("click", begin);
-  setTimeout(begin, 5000); // autoplay if the user just watches
+  $("start-btn").addEventListener("click", () => begin(0, PLAY_TOTAL));
+  const autoplayTimer = setTimeout(() => begin(0, PLAY_TOTAL), 9000); // autoplay whole trip if the user just watches
+  // don't let the autoplay hijack a deliberate day choice: cancel it once the
+  // pointer is over the day picker
+  introDays.addEventListener("pointerenter", () => clearTimeout(autoplayTimer));
 })();
