@@ -127,6 +127,13 @@
     for (let i = 0; i < media.length; i++) {
       const p = trip2play(media[i].t);
       if (p - lastP >= MIN_CARD_GAP) { cardIndices.push(i); lastP = p; }
+      else if (media[i].type === "video" && cardIndices.length &&
+               media[cardIndices[cardIndices.length - 1]].type !== "video") {
+        // too close to keep as its own card, but videos are more fun to watch than
+        // stills — let a video bump the photo we just kept (lastP stays anchored so
+        // spacing to the next card still holds)
+        cardIndices[cardIndices.length - 1] = i;
+      }
     } }
   const cardTs = cardIndices.map(i => media[i].t);
   const cardMediaIdxAt = t => { if (!cardTs.length || t < cardTs[0]) return -1; return cardIndices[bisect(cardTs, t)]; };
@@ -428,6 +435,8 @@
   function showFinale() {
     if (finaleShown) return;
     finaleShown = true;
+    // don't leave the last clip/photo showing behind the finale
+    mediaCard.classList.add("hidden"); mediaVideo.pause();
     const fin = $("finale");
     const tEnd = play2trip(segEnd);
     const nDay = dayNumAt(tEnd);
@@ -551,6 +560,28 @@
     if (e.code === "Escape") closeLb();
   });
 
+  // ---------- about overlay ----------
+  {
+    const miles = Math.round(TOTAL_KM * 0.621371).toLocaleString();
+    const nCharges = stops.filter(s => s.type === "charge").length;
+    const kwh = Math.round(stops.reduce((a, s) => a + (s.type === "charge" && s.kwh ? s.kwh : 0), 0)).toLocaleString();
+    const nDays = dayNumAt(T1);
+    $("about-route").textContent = `${data.meta.start} → ${data.meta.finish}`;
+    $("about-stats").innerHTML =
+      `<span><b>${miles}</b>miles</span><span><b>${nDays}</b>days</span>` +
+      `<span><b>${nCharges}</b>Superchargers</span><span><b>${kwh}</b>kWh</span>`;
+    $("about-why").textContent =
+      `In July 2026 we packed up life in the Bay Area and moved to New York — and instead of flying, ` +
+      `we drove the whole way. ${miles} miles from ${data.meta.start} to ${data.meta.finish} in ` +
+      `${nDays} days, one Tesla and ${nCharges} Supercharger stops. This map replays that move, mile by mile.`;
+    const about = $("about");
+    const closeAbout = () => about.classList.add("fade");
+    $("about-close").addEventListener("click", closeAbout);
+    about.addEventListener("click", e => { if (e.target.id === "about") closeAbout(); });
+    for (const id of ["intro-about", "finale-about"])
+      $(id) && $(id).addEventListener("click", () => about.classList.remove("hidden", "fade"));
+  }
+
   // ---------- intro ----------
   render(T0);
   setReveal(0.002);
@@ -558,10 +589,10 @@
   intro.querySelector("p").innerHTML = complete
     ? `3,200 miles · one Tesla · five days<br>Coast to coast — the whole crossing.`
     : `3,200 miles · one Tesla · five days<br>Follow the trail so far — ${dayNumAt(T1)} days in.`;
-  // day picker (most recent first): each chip plays just that day
+  // day picker (chronological Day 1 → N): each chip plays just that day
   const introDays = $("intro-days");
   const stateOf = s => (s.split(",").pop() || "").trim();
-  for (let k = chapters.length - 1; k >= 0; k--) {
+  for (let k = 0; k < chapters.length; k++) {
     const c = chapters[k], day = data.meta.days[c.d - 1];
     const btn = document.createElement("button");
     btn.className = "day-chip";

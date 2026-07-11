@@ -389,7 +389,7 @@ html, body {
 .popup-line b { color: var(--accent2); }
 
 /* ---------- intro / finale ---------- */
-#intro, #finale {
+#intro, #finale, #about {
   position: absolute; inset: 0;
   z-index: 50;
   display: grid;
@@ -398,7 +398,29 @@ html, body {
   backdrop-filter: blur(3px);
   transition: opacity .6s ease;
 }
-#intro.fade, #finale.fade { opacity: 0; pointer-events: none; }
+#about { z-index: 55; background: radial-gradient(ellipse at 50% 40%, rgba(11,15,26,.82), rgba(11,15,26,.97)); }
+#intro.fade, #finale.fade, #about.fade { opacity: 0; pointer-events: none; }
+
+/* about panel */
+.about-inner { position: relative; text-align: center; padding: 30px 26px; max-width: 460px; }
+#about h2 { font-size: 1.7rem; font-weight: 700; line-height: 1.15; margin-bottom: 6px; }
+#about-stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 22px; margin: 20px 0; }
+#about-stats span { display: flex; flex-direction: column; align-items: center; font-size: .58rem; letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim); }
+#about-stats b { font-size: 1.5rem; font-weight: 700; color: var(--accent); letter-spacing: 0; margin-bottom: 2px; }
+#about-why { color: var(--text); opacity: .82; font-size: .92rem; line-height: 1.65; }
+#about-close {
+  position: absolute; top: -6px; right: -4px;
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--panel-border); background: var(--panel);
+  color: var(--text); font-size: .9rem; cursor: pointer;
+}
+.text-link {
+  display: block; margin: 16px auto 0;
+  background: none; border: none; cursor: pointer;
+  font-family: inherit; font-size: .8rem; letter-spacing: .04em;
+  color: var(--text-dim);
+}
+.text-link:hover { color: var(--accent); }
 .intro-inner, .finale-inner { text-align: center; padding: 24px; max-width: 340px; }
 .intro-kicker {
   font-size: .68rem;

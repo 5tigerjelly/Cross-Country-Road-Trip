@@ -3,7 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>CA → NY · Cross-Country Road Trip</title>
+<title>The Great Crossing · CA → NY Road Trip</title>
+<meta name="description" content="A Tesla road trip across America: Mountain View, CA to Manhattan, NY — 3,197 miles in 5 days, replayed as an interactive time-travel map.">
+<!-- share preview (Open Graph / Twitter) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="The Great Crossing — CA → NY by Tesla">
+<meta property="og:description" content="Mountain View to Manhattan: 3,197 miles, 5 days, 33 Superchargers. An interactive time-travel map of the drive across America.">
+<meta property="og:image" content="https://5tigerjelly.github.io/Cross-Country-Road-Trip/og-image.jpg">
+<meta property="og:url" content="https://5tigerjelly.github.io/Cross-Country-Road-Trip/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Great Crossing — CA → NY by Tesla">
+<meta name="twitter:description" content="Mountain View to Manhattan: 3,197 miles, 5 days, 33 Superchargers. An interactive map of the drive across America.">
+<meta name="twitter:image" content="https://5tigerjelly.github.io/Cross-Country-Road-Trip/og-image.jpg">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -68,6 +79,7 @@
     <button id="start-btn">▶&nbsp; Ride the whole trip</button>
     <div class="intro-or">or jump to a single day</div>
     <div id="intro-days"></div>
+    <button id="intro-about" class="text-link">ⓘ&nbsp; About this trip</button>
   </div>
 </div>
 
@@ -85,6 +97,17 @@
     <p id="finale-body"></p>
     <button id="replay-btn">↺&nbsp; Replay the trip</button>
     <button id="finale-more">↩&nbsp; Choose a day</button>
+    <button id="finale-about" class="text-link">ⓘ&nbsp; About this trip</button>
+  </div>
+</div>
+
+<div id="about" class="hidden">
+  <div class="about-inner">
+    <button id="about-close" aria-label="Close">✕</button>
+    <div class="intro-kicker">THE GREAT CROSSING</div>
+    <h2 id="about-route">Mountain View, CA → Manhattan, NY</h2>
+    <div id="about-stats"></div>
+    <p id="about-why"></p>
   </div>
 </div>
 
