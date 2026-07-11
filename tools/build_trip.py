@@ -36,6 +36,9 @@ if not os.path.exists(EXIF_JSON) or os.path.getmtime(EXIF_JSON) < photos_mtime:
 HOME = (37.3722, -122.0575)          # actual start vicinity (kept private)
 MTV_CENTER = (37.3861, -122.0839)    # public stand-in: Mountain View, CA
 HOME_RADIUS_KM = 3.0
+DEST = (40.7710, -73.9869)           # actual arrival vicinity (Lincoln Center) — kept private
+NYC_CENTER = (40.7580, -73.9855)     # public stand-in: Manhattan, NY (Midtown)
+DEST_RADIUS_KM = 3.0
 TRIP_START_UTC = datetime.datetime(2026, 7, 6, 13, 0, tzinfo=datetime.timezone.utc)  # 6:00 AM PT gate
 
 def hav(a, b):
@@ -69,6 +72,8 @@ for x in json.load(open(EXIF_JSON)):
     lat, lon = x.get("GPSLatitude"), x.get("GPSLongitude")
     if lat is not None and hav((lat, lon), HOME) < HOME_RADIUS_KM:
         lat, lon = MTV_CENTER
+    elif lat is not None and hav((lat, lon), DEST) < DEST_RADIUS_KM:
+        lat, lon = NYC_CENTER
     base = os.path.splitext(name)[0].replace(" ", "_")
     is_vid = x.get("MIMEType", "").startswith("video")
     media.append({
@@ -114,6 +119,17 @@ FALLBACK = {
     "Shelby, IA": (41.5138, -95.4497),
     "West Des Moines, IA": (41.5641, -93.8127),
     "Grinnell, IA": (41.6889, -92.7769),
+    "Davenport, IA": (41.5566, -90.5887),
+    "Rochelle, IL": (41.9161, -89.0687),
+    "North Aurora, IL": (41.8100, -88.3226),
+    "Rolling Prairie, IN - S Knute Rockne Plaza": (41.6875, -86.6483),
+    "Howe, IN - Gene Stratton Travel Plaza": (41.7178, -85.4186),
+    "Maumee, OH": (41.5650, -83.6560),
+    "Girard, OH": (41.1540, -80.7010),
+    "Falls Creek, PA": (41.1440, -78.8060),
+    "Mill Hall, PA": (41.1060, -77.4790),
+    "Sugarloaf, PA": (40.9990, -76.0600),
+    "Columbia, NJ": (40.9290, -75.0670),
 }
 charges = []
 for row in csv.DictReader(open(CHARGE_CSV)):
@@ -174,6 +190,17 @@ cor_lo = datetime.datetime(2026, 7, 8, 19, 0, tzinfo=CT).timestamp()
 cor_hi = datetime.datetime(2026, 7, 9, 11, 0, tzinfo=CT).timestamp()
 cor_coord, cor_arr, cor_dep = hotel_cluster((41.6845, -91.6025), cor_lo, cor_hi)
 
+# Day 4 overnight: Wyndham Avon, OH (Eastern time — crossed the line in Indiana)
+EDT = datetime.timezone(datetime.timedelta(hours=-4))
+avon_lo = datetime.datetime(2026, 7, 9, 20, 0, tzinfo=EDT).timestamp()
+avon_hi = datetime.datetime(2026, 7, 10, 11, 0, tzinfo=EDT).timestamp()
+avon_coord, avon_arr, avon_dep = hotel_cluster((41.4586, -82.0118), avon_lo, avon_hi)
+
+# Day 5 finish: arrival in Manhattan. Media near DEST are snapped to NYC_CENTER
+# (privacy), so the arrival time is the earliest media sitting at that point.
+dest_media = [m for m in media if (m["lat"], m["lon"]) == NYC_CENTER]
+dest_arr = min((m["t"] for m in dest_media), default=None)
+
 hotels = [
     {"type": "hotel", "label": "West Wendover, NV", "name": "Quality Inn Stateline",
      "lat": wend_coord[0], "lon": wend_coord[1],
@@ -188,17 +215,29 @@ hotels = [
     {"type": "hotel", "label": "Coralville, IA", "name": "Comfort Suites Coralville I-80",
      "lat": cor_coord[0], "lon": cor_coord[1],
      "arrive": cor_arr or datetime.datetime(2026,7,8,20,25,tzinfo=CT).timestamp(),
-     "depart": None,  # still there — end of timeline
+     "depart": cor_dep or datetime.datetime(2026,7,9,6,30,tzinfo=CT).timestamp(),
      "tz": -5, "night": "Wed, Jul 8"},
+    {"type": "hotel", "label": "Avon, OH", "name": "Wyndham Avon",
+     "lat": avon_coord[0], "lon": avon_coord[1],
+     "arrive": avon_arr or datetime.datetime(2026,7,9,20,50,tzinfo=EDT).timestamp(),
+     "depart": avon_dep or datetime.datetime(2026,7,10,6,25,tzinfo=EDT).timestamp(),
+     "tz": -4, "night": "Thu, Jul 9"},
 ]
+# arrival at the destination — end of the whole journey
+finish = {"type": "finish", "label": "Manhattan, NY",
+          "lat": NYC_CENTER[0], "lon": NYC_CENTER[1],
+          "arrive": dest_arr or datetime.datetime(2026,7,10,15,45,tzinfo=EDT).timestamp(),
+          "depart": None, "tz": -4}
 print("wendover:", wend_coord, wend_arr, wend_dep)
 print("sterling:", ster_coord, ster_arr, ster_dep)
 print("coralville:", cor_coord, cor_arr, cor_dep)
+print("avon:", avon_coord, avon_arr, avon_dep)
+print("finish arr:", dest_arr, "dest_media:", len(dest_media))
 
 # ---------- 4. anchors ----------
 start_t = media[0]["t"] - 120 if media else TRIP_START_UTC.timestamp()
 stops = [{"type": "start", "label": "Mountain View, CA", "lat": MTV_CENTER[0], "lon": MTV_CENTER[1],
-          "arrive": start_t, "depart": start_t, "tz": -7}] + charges + hotels
+          "arrive": start_t, "depart": start_t, "tz": -7}] + charges + hotels + [finish]
 stops.sort(key=lambda s: s["arrive"])
 
 end_t = media[-1]["t"] + 300
@@ -324,16 +363,8 @@ for a in anchors:
         tz_steps.append([round(a["t"]), a["tz"]])
 
 # ---------- 6. future route ----------
-FUTURE = [
-    ("Coralville, IA", cor_coord),
-    ("Davenport, IA", (41.5236,-90.5776)), ("Peru, IL", (41.3275,-89.1290)),
-    ("Joliet, IL", (41.5250,-88.0817)), ("Mishawaka, IN", (41.6620,-86.1586)),
-    ("Angola, IN", (41.6345,-84.9997)), ("Maumee, OH", (41.5628,-83.6538)),
-    ("Avon, OH", (41.4517,-82.0354)), ("Austintown, OH", (41.1012,-80.7645)),
-    ("DuBois, PA", (41.1192,-78.7600)), ("Lamar, PA", (41.0037,-77.5372)),
-    ("Bloomsburg, PA", (41.0037,-76.4549)), ("Rockaway, NJ", (40.9012,-74.5140)),
-    ("Long Island City, NY", (40.7447,-73.9485)),
-]
+# Trip complete — arrived in Manhattan. No dashed "still to come" line remains.
+FUTURE = []
 fut_legs = []
 i = 0
 coords = [c for _, c in FUTURE]
@@ -358,12 +389,14 @@ future_stops = [{"label": n, "lat": c[0], "lon": c[1], "kind": PLAN.get(n, "char
 out = {
     "meta": {
         "title": "CA → NY Cross-Country",
-        "start": "Mountain View, CA", "finish": "Long Island City, NY",
+        "start": "Mountain View, CA", "finish": "Manhattan, NY", "complete": True,
         "t0": round(track[0][0]), "t1": round(track[-1][0]),
         "days": [
             {"label": "Day 1", "date": "Mon Jul 6", "from": "Mountain View, CA", "to": "West Wendover, NV"},
             {"label": "Day 2", "date": "Tue Jul 7", "from": "West Wendover, NV", "to": "Sterling, CO"},
             {"label": "Day 3", "date": "Wed Jul 8", "from": "Sterling, CO", "to": "Coralville, IA"},
+            {"label": "Day 4", "date": "Thu Jul 9", "from": "Coralville, IA", "to": "Avon, OH"},
+            {"label": "Day 5", "date": "Fri Jul 10", "from": "Avon, OH", "to": "Manhattan, NY"},
         ],
     },
     "tz": tz_steps,

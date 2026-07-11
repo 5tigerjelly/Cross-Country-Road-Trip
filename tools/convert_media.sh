@@ -2,6 +2,8 @@
 # Convert trip media to web-friendly formats.
 # HEIC/JPG -> resized JPEG, MOV/MP4 -> H.264 MP4 (libx264 CRF) + poster JPEG.
 set -u
+setopt null_glob        # unmatched extension globs vanish instead of erroring
+unsetopt case_glob      # match extensions case-insensitively (.heic as well as .HEIC)
 SRC="/Users/chrisoh/Code/Cross-Country-Road-Trip/photos"
 OUT="/Users/chrisoh/Code/Cross-Country-Road-Trip/site/media"
 mkdir -p "$OUT"
@@ -30,6 +32,8 @@ done
 # Videos -> H.264 High/yuv420p/faststart, max 960px wide, libx264 CRF 27 (much
 # smaller than the old 2200k hardware encode at equal quality, universally
 # mobile-web friendly). -map_metadata -1 drops all tags incl. GPS.
+# Capped at 10s (-t 10): during the map replay a clip only shows for a few seconds
+# before the next one, so anything past ~10s is never seen — and it saves a lot.
 #
 # HDR sources (HLG/PQ, 10-bit bt2020) must be tone-mapped to SDR bt709 or browsers
 # apply an eye-searing EDR boost. That's done on the GPU via scale_vt, then the
@@ -56,7 +60,7 @@ for f in *.MOV *.mov *.MP4; do
         -map 0:v:0 -map "0:a:0?" \
         -vf "scale='min(960,iw)':-2,hwupload,scale_vt=color_matrix=bt709:color_primaries=bt709:color_transfer=bt709,hwdownload,format=p010le,format=yuv420p" \
         -c:v libx264 -preset medium -crf 27 -profile:v high -level 4.0 \
-        -c:a aac -b:a 96k -movflags +faststart -map_metadata -1 -y "$dest" \
+        -c:a aac -b:a 96k -t 10 -movflags +faststart -map_metadata -1 -y "$dest" \
         || { echo "FAIL video: $f"; rm -f "$dest"; }
     else
       # SDR (already bt709): plain sw scale + encode
@@ -64,7 +68,7 @@ for f in *.MOV *.mov *.MP4; do
         -map 0:v:0 -map "0:a:0?" \
         -vf "scale='min(960,iw)':-2,format=yuv420p" \
         -c:v libx264 -preset medium -crf 27 -profile:v high -level 4.0 \
-        -c:a aac -b:a 96k -movflags +faststart -map_metadata -1 -y "$dest" \
+        -c:a aac -b:a 96k -t 10 -movflags +faststart -map_metadata -1 -y "$dest" \
         || { echo "FAIL video: $f"; rm -f "$dest"; }
     fi
   fi

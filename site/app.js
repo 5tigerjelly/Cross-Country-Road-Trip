@@ -108,6 +108,7 @@
       const s = sorted[i], dep = s.depart == null ? T1 : s.depart;
       if (s.type === "charge") phases.push({ t0: s.arrive, t1: dep, icon: "⚡", text: `Supercharging · ${s.label}`, sub: `${s.kwh} kWh`, dwell: true });
       else if (s.type === "hotel") phases.push({ t0: s.arrive, t1: dep, icon: "🌙", text: `Overnight · ${s.label}`, sub: s.name, dwell: true });
+      else if (s.type === "finish") phases.push({ t0: s.arrive, t1: dep, icon: "🏁", text: `Arrived · ${s.label}`, sub: "The Great Crossing complete", dwell: true });
       const nxt = sorted[i + 1];
       if (nxt && nxt.arrive > dep) phases.push({ t0: dep, t1: nxt.arrive, icon: "🛣", text: `En route → ${nxt.label}`, dwell: false });
     }
@@ -234,7 +235,9 @@
       ? `<div class="popup-title">⚡ ${s.label}</div><div class="popup-line"><b>${s.kwh} kWh</b> · $${(s.cost || "").trim()}</div><div class="popup-line">${p.day} · ${p.time} ${p.tzName}</div>`
       : s.type === "hotel"
         ? `<div class="popup-title">🛏 ${s.name}</div><div class="popup-line">${s.label}</div><div class="popup-line">Night of ${s.night}</div>`
-        : `<div class="popup-title">🏁 ${s.label}</div><div class="popup-line">The journey begins · ${p.day}</div>`;
+        : s.type === "finish"
+          ? `<div class="popup-title">🏁 ${s.label}</div><div class="popup-line">Journey complete · ${p.day}</div>`
+          : `<div class="popup-title">🏁 ${s.label}</div><div class="popup-line">The journey begins · ${p.day}</div>`;
     const mk = new maplibregl.Marker({ element: root })
       .setLngLat([s.lon, s.lat])
       .setPopup(new maplibregl.Popup({ offset: 18, closeButton: false }).setHTML(html))
@@ -420,6 +423,7 @@
     else if (curMediaIdx >= 0 && media[curMediaIdx].type === "video") mediaVideo.play().catch(() => {});
   }
 
+  const complete = !!(data.meta && data.meta.complete);
   const wholeTrip = () => segStart <= 0.5 && segEnd >= PLAY_TOTAL - 0.5;
   function showFinale() {
     if (finaleShown) return;
@@ -430,10 +434,13 @@
     let lastStop = stops[0];
     for (const s of stops) if (s.arrive <= tEnd + 1) lastStop = s;
     const miles = Math.round(posAt(tEnd).km * 0.621371).toLocaleString();
-    fin.querySelector(".intro-kicker").textContent = wholeTrip() ? `END OF DAY ${nDay}` : `DAY ${nDay}`;
+    const charges = stops.filter(s => s.type === "charge").length;
+    fin.querySelector(".intro-kicker").textContent = wholeTrip() ? (complete ? "COAST TO COAST" : `END OF DAY ${nDay}`) : `DAY ${nDay}`;
     $("finale-title").textContent = lastStop.label;
     $("finale-body").textContent = wholeTrip()
-      ? `${miles} miles, ${stops.filter(s => s.type === "charge").length} supercharges and ${media.length} memories in ${nDay} days. Still to come: the dashed line to New York.`
+      ? (complete
+          ? `${miles} miles, ${charges} supercharges and ${media.length} memories across ${nDay} days — Mountain View to Manhattan. The Great Crossing, complete.`
+          : `${miles} miles, ${charges} supercharges and ${media.length} memories in ${nDay} days. Still to come: the dashed line to New York.`)
       : `That wraps Day ${nDay} — into ${lastStop.label}. Replay it, or pick another day.`;
     $("replay-btn").innerHTML = wholeTrip() ? "↺&nbsp; Replay the trip" : `↺&nbsp; Replay Day ${nDay}`;
     fin.classList.remove("hidden", "fade");
@@ -548,8 +555,9 @@
   render(T0);
   setReveal(0.002);
   const intro = $("intro");
-  intro.querySelector("p").innerHTML =
-    `2,900 miles · one Tesla · five days<br>Follow the trail so far — ${dayNumAt(T1)} days in.`;
+  intro.querySelector("p").innerHTML = complete
+    ? `3,200 miles · one Tesla · five days<br>Coast to coast — the whole crossing.`
+    : `3,200 miles · one Tesla · five days<br>Follow the trail so far — ${dayNumAt(T1)} days in.`;
   // day picker (most recent first): each chip plays just that day
   const introDays = $("intro-days");
   const stateOf = s => (s.split(",").pop() || "").trim();
