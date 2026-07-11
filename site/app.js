@@ -571,8 +571,8 @@
       `<span><b>${miles}</b>miles</span><span><b>${nDays}</b>days</span>` +
       `<span><b>${nCharges}</b>Superchargers</span><span><b>${kwh}</b>kWh</span>`;
     $("about-why").textContent =
-      `In July 2026 we packed up life in the Bay Area and moved to New York — and instead of flying, ` +
-      `we drove the whole way. ${miles} miles from ${data.meta.start} to ${data.meta.finish} in ` +
+      `In July 2026 Chris packed up life in the Bay Area and moved to New York — and instead of flying, ` +
+      `drove the whole way. ${miles} miles from ${data.meta.start} to ${data.meta.finish} in ` +
       `${nDays} days, one Tesla and ${nCharges} Supercharger stops. This map replays that move, mile by mile.`;
     const about = $("about");
     const closeAbout = () => about.classList.add("fade");
